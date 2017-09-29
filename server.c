@@ -56,6 +56,7 @@ void* client_serve(void* thread_data){
                 pthread_mutex_lock(&mutex);
                 buffer[index_buffer] = (char*)malloc(strlen(buf)+1);
                 sprintf(buffer[index_buffer], "%s",buf);
+                //printf( "%s",buf);
                 index_buffer++;
                 pthread_mutex_unlock(&mutex);
                 send(sock, buf, bytes_read, 0);
@@ -63,7 +64,7 @@ void* client_serve(void* thread_data){
             if(bytes_read == 0) {
                 pthread_mutex_lock(&mutex);
                 buffer[index_buffer] = (char*)malloc(DISCONNECT_MESSEGE_SIZE+strlen(client_ip));
-                sprintf(buffer[index_buffer], "[]: client  disconnected", pthread_self(), client_ip);
+                sprintf(buffer[index_buffer], "[%lu]: client  disconnected", pthread_self(), client_ip);
                 index_buffer++;
                 pthread_mutex_unlock(&mutex);
                 close(sock);
@@ -80,7 +81,19 @@ void* client_serve(void* thread_data){
 
 void signal_handler()
 {
-    //TODO write code that write buffer to file
+    FILE *fl = fopen("temp.log", "w");
+    if (fl == NULL){
+       printf("Error create file");
+       exit(-1);
+    }
+    for(int index = 0; index < index_buffer; index++){
+        fprintf(fl, "%s\n", buffer[index]);
+        free(buffer[index]);
+    }
+    free(buffer);
+    fclose(fl);
+    printf("temp.log");
+    exit(0);
 }
 
 
