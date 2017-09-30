@@ -4,14 +4,14 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <pthread.h>
 #include <signal.h>
+#include <string.h>
+#include <unistd.h>
 #include "server.h"
 
 
-pthread_mutex_t mutex;
-int index_buffer;
-char **buffer;
 
 void *client_idle(void *thread)
 {
@@ -20,7 +20,7 @@ void *client_idle(void *thread)
     {
         sleep(SLEEP_TIME);
         pthread_mutex_lock(&mutex);
-        //printf("[%lu]: idle\n", pthread_self);
+        printf("[%lu]: idle\n", pthread_self);
         buffer[index_buffer] = (char*)malloc(IDLE_MESSEGE_SIZE);
         sprintf(buffer[index_buffer], "[%lu]: idle", pthread_self);
         index_buffer++;
@@ -30,11 +30,11 @@ void *client_idle(void *thread)
 }
 
 void* client_serve(void* thread_data){
-    struct thread_params *params = (struct readThreadParams *)thread_data;
+    struct thread_params *params = thread_data;
 
-    int sock = params->sock;
+    int sock =(int) params->sock;
     char *client_ip = params->client_ip;
-    //printf("[%lu]: accept new client %s\n",pthread_self(),client_ip);
+    printf("[%lu]: accept new client %s\n",pthread_self(),client_ip);
 
     pthread_t idle;
     pthread_create(&idle, NULL, &client_idle, (void*)pthread_self());
@@ -56,7 +56,7 @@ void* client_serve(void* thread_data){
                 pthread_mutex_lock(&mutex);
                 buffer[index_buffer] = (char*)malloc(strlen(buf)+1);
                 sprintf(buffer[index_buffer], "%s",buf);
-                //printf( "%s",buf);
+                printf( "%s\n",buf);
                 index_buffer++;
                 pthread_mutex_unlock(&mutex);
                 send(sock, buf, bytes_read, 0);
@@ -64,7 +64,8 @@ void* client_serve(void* thread_data){
             if(bytes_read == 0) {
                 pthread_mutex_lock(&mutex);
                 buffer[index_buffer] = (char*)malloc(DISCONNECT_MESSEGE_SIZE+strlen(client_ip));
-                sprintf(buffer[index_buffer], "[%lu]: client  disconnected", pthread_self(), client_ip);
+                sprintf(buffer[index_buffer], "[%lu]: client  disconnected %s", pthread_self(), client_ip);
+                printf("[%lu]: client  disconnected %s\n", pthread_self(), client_ip);
                 index_buffer++;
                 pthread_mutex_unlock(&mutex);
                 close(sock);
@@ -81,7 +82,7 @@ void* client_serve(void* thread_data){
 
 void signal_handler()
 {
-    FILE *fl = fopen("temp.log", "w");
+    FILE *fl = fopen("tmp/server.log", "w");
     if (fl == NULL){
        printf("Error create file");
        exit(-1);
@@ -92,7 +93,6 @@ void signal_handler()
     }
     free(buffer);
     fclose(fl);
-    printf("temp.log");
     exit(0);
 }
 
@@ -101,6 +101,7 @@ void start_server()
 {
     int *sock, listener;
     struct sockaddr_in server_addr,client_addr;
+    int len;
 
     buffer = (char**) malloc((BUFFER_SIZE)*sizeof(char*));
     index_buffer = 0;
@@ -127,28 +128,32 @@ void start_server()
 
     if (pthread_mutex_init(&mutex, NULL) != 0){
         printf("\n mutex init failed\n");
-        return 1;
+        exit(3);
     }
 
     while(1)
     {
-        sock = accept(listener, NULL, NULL);
+        sock =(int*)accept(listener,(struct sockaddr*)&client_addr, (socklen_t*)&len);
         char client_ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET,&client_addr.sin_addr.s_addr,client_ip,sizeof(client_ip));
+
 
         if(sock < 0)
         {
             perror("accept");
-            exit(3);
+            exit(4);
         }
-        pthread_t tid;
+        pthread_t thread;
         struct thread_params read_params;
         read_params.client_ip = client_ip;
         read_params.sock = sock;
 
-        pthread_create(&tid, NULL, client_serve, &read_params);
+        pthread_create(&thread, NULL, client_serve, &read_params);
 
     }
     close(listener);
-    return 0;
+}
+int main()
+{
+    start_server();
 }
