@@ -99,9 +99,9 @@ void signal_handler()
 
 void start_server()
 {
-    int *sock, listener;
+    int sock, listener;
     struct sockaddr_in server_addr,client_addr;
-    int len;
+    int len=sizeof(struct sockaddr_in);;
 
     buffer = (char**) malloc((BUFFER_SIZE)*sizeof(char*));
     index_buffer = 0;
@@ -133,9 +133,9 @@ void start_server()
 
     while(1)
     {
-        sock =(int*)accept(listener,(struct sockaddr*)&client_addr, (socklen_t*)&len);
+        sock = accept(listener,(struct sockaddr *)&client_addr, (socklen_t*)&len);
         char client_ip[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET,&client_addr.sin_addr.s_addr,client_ip,sizeof(client_ip));
+        inet_ntop(AF_INET,&client_addr.sin_addr.s_addr,client_ip,INET_ADDRSTRLEN);
 
 
         if(sock < 0)
